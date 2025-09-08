@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tư vấn trực tuyến</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+    #chat-box::-webkit-scrollbar, #history-box::-webkit-scrollbar { width: 6px; }
+    #chat-box::-webkit-scrollbar-thumb, #history-box::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    #chat-box::-webkit-scrollbar-thumb:hover, #history-box::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+  <div class="flex bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-7xl h-[800px]">
+
+    <!-- Sidebar trái -->
+    <div class="w-1/4 bg-gray-100 p-6 flex flex-col border-r border-gray-200">
+      <h1 class="text-3xl font-bold text-blue-600 mb-6">MEDIVERSE</h1>
+      <h2 class="text-xl font-semibold text-gray-800 mb-4">Tư vấn trực tuyến</h2>
+
+      <!-- Menu -->
+      <ul id="main-menu" class="space-y-3 font-medium text-lg">
+        <li id="menu-doctor" class="p-3 rounded-xl hover:bg-gray-200 cursor-pointer flex items-center justify-between text-gray-700">
+          <div class="flex items-center space-x-3"><i class="fas fa-user-md"></i><span>Bác sĩ</span></div>
+          <i class="fas fa-chevron-right" id="arrow-doctor"></i>
+        </li>
+        <li id="menu-ai" class="p-3 rounded-xl hover:bg-gray-200 cursor-pointer flex items-center justify-between text-gray-700">
+          <div class="flex items-center space-x-3"><i class="fas fa-robot"></i><span>Chatbot AI</span></div>
+        </li>
+        <li id="menu-history" class="p-3 rounded-xl hover:bg-gray-200 cursor-pointer flex items-center justify-between text-gray-700">
+          <div class="flex items-center space-x-3"><i class="fas fa-history"></i><span>Lịch sử</span></div>
+          <i class="fas fa-chevron-right" id="arrow-history"></i>
+        </li>
+      </ul>
+
+      <!-- History list -->
+      <div id="history-box" class="mt-4 flex-1 overflow-y-auto hidden"></div>
+    </div>
+
+    <!-- Chat box -->
+    <div class="flex-1 flex flex-col">
+      <!-- Header -->
+      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <i class="fas fa-comments text-2xl text-blue-600"></i>
+          <h2 id="chat-title" class="text-lg font-bold text-gray-800">Chọn mục bên trái để bắt đầu</h2>
+        </div>
+      </div>
+
+      <!-- Chat messages -->
+      <div id="chat-box" class="flex-1 overflow-y-auto p-6 space-y-4"></div>
+
+      <!-- Input -->
+      <div class="p-6 border-t border-gray-200 flex items-center space-x-3 bg-white">
+        <input id="message-input" type="text" placeholder="Nhập tin nhắn..." class="flex-1 p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <button id="send-btn" class="p-3 bg-blue-600 text-white rounded-xl shadow-md hover:bg-blue-700 transition"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+
+    <!-- Sidebar phải -->
+    <div class="w-1/4 bg-gray-50 p-6 flex flex-col border-l border-gray-200">
+      <h2 class="text-lg font-semibold text-gray-800 mb-4">Thông tin</h2>
+      <div id="info-box" class="bg-white p-4 rounded-xl shadow-sm text-gray-600 mb-6">
+        <p>Chọn tính năng từ menu bên trái để bắt đầu.</p>
+      </div>
+
+      <h3 class="text-lg font-semibold text-gray-800 mb-3">FAQ</h3>
+      <div class="faq-item bg-gray-200 p-2 rounded-xl cursor-pointer mb-2 hover:bg-gray-300">Tôi nên uống thuốc thế nào?</div>
+      <div class="faq-item bg-gray-200 p-2 rounded-xl cursor-pointer mb-2 hover:bg-gray-300">Triệu chứng này có đáng lo?</div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:3000";
+    const userId = "user001";
+    let activeConversationId = null;
+    let activeMode = null; // "ai" | "doctor"
+
+    const chatBox = document.getElementById("chat-box");
+    const input = document.getElementById("message-input");
+    const sendBtn = document.getElementById("send-btn");
+    const chatTitle = document.getElementById("chat-title");
+    const infoBox = document.getElementById("info-box");
+    const historyBox = document.getElementById("history-box");
+    const arrowDoctor = document.getElementById("arrow-doctor");
+    const arrowHistory = document.getElementById("arrow-history");
+
+    function addMessage(role, content) {
+      const wrap = document.createElement("div");
+      wrap.className = "flex w-full";
+      const div = document.createElement("div");
+      if (role === "user") {
+        wrap.classList.add("justify-end");
+        div.className = "bg-blue-600 text-white rounded-xl p-3 max-w-sm shadow";
+        div.textContent = content;
+      } else {
+        wrap.classList.add("justify-start");
+        div.className = "bg-gray-200 text-gray-800 rounded-xl p-3 max-w-sm shadow";
+        div.innerHTML = marked.parse(content);
+      }
+      wrap.appendChild(div);
+      chatBox.appendChild(wrap);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function setActiveMenu(id) {
+      document.querySelectorAll("#main-menu li").forEach(li => li.classList.remove("bg-blue-100", "text-blue-700"));
+      const active = document.getElementById(id);
+      if (active) active.classList.add("bg-blue-100", "text-blue-700");
+    }
+
+    async function startNewConversation(mode) {
+      const res = await fetch(`${API_URL}/conversation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId })
+      });
+      const data = await res.json();
+      activeConversationId = data.id;
+      activeMode = mode;
+    }
+
+    // Chat AI
+    document.getElementById("menu-ai").addEventListener("click", async () => {
+      setActiveMenu("menu-ai");
+      chatBox.innerHTML = "";
+      chatTitle.textContent = "Chatbot AI";
+      infoBox.innerHTML = "<p>Chat với AI 🤖 để được hỗ trợ.</p>";
+      await startNewConversation("ai");
+      addMessage("assistant", "Xin chào, tôi là Chatbot AI 🤖. Bạn cần gì?");
+    });
+
+    // Chat bác sĩ (lấy 3 gần nhất + suggested)
+    document.getElementById("menu-doctor").addEventListener("click", async () => {
+      toggleSection("doctor");
+      setActiveMenu("menu-doctor");
+      chatBox.innerHTML = "";
+      chatTitle.textContent = "Chat với bác sĩ";
+      infoBox.innerHTML = "<p>Đang tải dữ liệu bác sĩ...</p>";
+
+      const res = await fetch(`${API_URL}/doctor-info?userId=${userId}`);
+      const data = await res.json();
+      if (!data.success) {
+        infoBox.innerHTML = "<p class='text-red-600'>Không lấy được dữ liệu bác sĩ.</p>";
+        return;
+      }
+      let html = "<h3 class='font-bold mb-2'>3 bác sĩ gần nhất:</h3>";
+      data.recent.forEach(doc => {
+        html += `<div class='p-2 bg-gray-200 mb-2 rounded cursor-pointer hover:bg-gray-300' onclick="loadDoctor('${doc.id}')">👨‍⚕️ ${doc.name} (${doc.specialty})</div>`;
+      });
+      if (data.suggested) {
+        html += `<h3 class='font-bold mt-4 mb-2'>Bác sĩ gợi ý:</h3><div class='p-2 bg-blue-100 mb-2 rounded cursor-pointer hover:bg-blue-200' onclick="startDoctor('${data.suggested.name}', '${data.suggested.specialty}')">⭐ ${data.suggested.name} (${data.suggested.specialty})</div>`;
+      }
+      infoBox.innerHTML = html;
+    });
+
+    window.loadDoctor = async function(id) {
+      activeConversationId = id;
+      chatBox.innerHTML = "";
+      const res = await fetch(`${API_URL}/conversation/${id}`);
+      const detail = await res.json();
+      detail.messages.forEach(m => addMessage(m.role, m.content));
+      addDeleteButton(id);
+    };
+
+    window.startDoctor = async function(name, specialty) {
+      await startNewConversation("doctor");
+      infoBox.innerHTML = `<p><b>Bác sĩ:</b> ${name}<br><b>Khoa:</b> ${specialty}</p>`;
+      addMessage("assistant", `Xin chào, tôi là <b>${name}</b>, bác sĩ chuyên khoa <b>${specialty}</b>. Tôi có thể hỗ trợ gì cho bạn?`);
+      addDeleteButton(activeConversationId);
+    };
+
+    // Lịch sử
+    document.getElementById("menu-history").addEventListener("click", async () => {
+      toggleSection("history");
+      setActiveMenu("menu-history");
+      historyBox.classList.remove("hidden");
+      historyBox.innerHTML = "<p>Đang tải lịch sử...</p>";
+      const res = await fetch(`${API_URL}/conversations/${userId}`);
+      const data = await res.json();
+      if (!data.success) return historyBox.innerHTML = "<p>Lỗi tải lịch sử</p>";
+      historyBox.innerHTML = data.conversations.map(c => `
+        <div class='p-2 mb-2 bg-gray-200 rounded flex justify-between items-center'>
+          <span class='cursor-pointer hover:underline' onclick="loadDoctor('${c.id}')">🗨️ ${c.preview}</span>
+          <button class='text-red-500 hover:text-red-700' onclick="deleteConversation('${c.id}')"><i class='fas fa-trash'></i></button>
+        </div>`).join("");
+    });
+
+    async function sendMessage() {
+      const msg = input.value.trim();
+      if (!msg || !activeConversationId) return;
+      addMessage("user", msg);
+      input.value = "";
+      const res = await fetch(`${API_URL}/chat/${activeConversationId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, question: msg })
+      });
+      const data = await res.json();
+      if (data.success) addMessage("assistant", data.answer);
+      else addMessage("assistant", "❌ Lỗi khi gửi tin.");
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+
+    document.querySelectorAll(".faq-item").forEach(item => item.addEventListener("click", () => {
+      input.value = item.innerText;
+      sendMessage();
+    }));
+
+    // Toggle sections Doctor/History
+    function toggleSection(section) {
+      if (section === "doctor") {
+        const open = arrowDoctor.classList.contains("fa-chevron-down");
+        arrowDoctor.className = open ? "fas fa-chevron-right" : "fas fa-chevron-down";
+        arrowHistory.className = "fas fa-chevron-right";
+        historyBox.classList.add("hidden");
+      } else if (section === "history") {
+        const open = arrowHistory.classList.contains("fa-chevron-down");
+        arrowHistory.className = open ? "fas fa-chevron-right" : "fas fa-chevron-down";
+        arrowDoctor.className = "fas fa-chevron-right";
+        if (open) historyBox.classList.add("hidden");
+      }
+    }
+
+    // Xóa hội thoại
+    window.deleteConversation = async function(id) {
+      const confirmDel = confirm("Bạn có chắc chắn muốn xóa cuộc trò chuyện này?");
+      if (!confirmDel) return;
+      const res = await fetch(`${API_URL}/conversation/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        alert("Đã xóa cuộc trò chuyện");
+        document.getElementById("menu-history").click();
+      } else {
+        alert("❌ Lỗi khi xóa");
+      }
+    }
+
+    // Thêm nút xóa vào khi mở chat cụ thể
+    function addDeleteButton(id) {
+      chatTitle.innerHTML += ` <button onclick="deleteConversation('${id}')" class='ml-2 text-red-500 hover:text-red-700'><i class='fas fa-trash'></i></button>`;
+    }
+
+    // Khi mới mở trang -> tự động vào Chat AI
+    window.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("menu-ai").click();
+    });
+  </script>
+</body>
+</html>
